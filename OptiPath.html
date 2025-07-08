@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OptiPath</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <!-- <link rel="stylesheet" href="leaflet.css">    if stored locally -->
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        #map {
+            height: 100vh;
+            width: 100%;
+        }
+
+        .controls {
+            position: absolute;
+            top: 10px;
+            left: 850px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px;
+            border-radius: 8px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .control-button,
+        .control-input,
+        .control-select {
+            padding: 8px;
+            width: 250px;
+            font-size: 14px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        .control-button {
+            background-color: #256BB8;
+            color: white;
+            cursor: pointer;
+        }
+
+        .control-button:hover {
+            background-color: #256BB8;
+        }
+
+        .output {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 10px;
+            border-radius: 8px;
+            z-index: 1000;
+            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.2);
+            max-height: 150px;
+            overflow-y: auto;
+            width: 300px;
+        }
+
+        .custom-marker {
+            background-color: #256BB8;
+            color: white;
+            text-align: center;
+            border-radius: 50%;
+            font-weight: bold;
+            line-height: 30px;
+            width: 30px;
+            height: 30px;
+            border: 2px solid white;
+            box-shadow: 0 0 4px rgba(0, 0, 0, 0.4);
+        }
+
+        .edge-tooltip {
+            background-color: #fff;
+            color: #000;
+            font-weight: bold;
+            border: 1px solid #ccc;
+            padding: 2px 5px;
+            border-radius: 4px;
+            box-shadow: 0 0 3px rgba(0, 0, 0, 0.3);
+        }
+
+        #totalTime {
+
+            position: absolute;
+            bottom: 0.5%;
+            left: 73.5%;
+            background-color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-weight: bold;
+            text-align: right;
+            border: 1px solid #ddd;
+            width: 300px;
+            margin: 10px 0;
+        }
+
+
+        #pathsContainer {
+            position: absolute;
+            bottom: 210px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 10px;
+            border-radius: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.2);
+            width: 300px;
+        }
+
+        .path-option {
+            margin: 5px 0;
+            padding: 8px;
+            background-color: #f0f0f0;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .path-option:hover {
+            background-color: #e0e0e0;
+        }
+
+        .path-option.selected {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+        }
+
+        .location-list {
+            max-height: 150px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 5px;
+            margin-top: 5px;
+            background-color: #f9f9f9;
+        }
+
+        .location-item {
+            padding: 5px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+        }
+
+        .location-item:hover {
+            background-color: #f0f0f0;
+        }
+
+        #clickPopup {
+            position: absolute;
+            padding: 10px;
+            background: white;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+            z-index: 1500;
+            display: none;
+        }
+
+        #addLocationBtn {
+            padding: 5px 10px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            margin-top: 5px;
+        }
+
+        #addLocationBtn:hover {
+            background: #0069d9;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="controls">
+        <div>
+            <div style="width: 10px"><img src="logo.svg" alt="" style="width: 200px"></div>
+            <!-- <h3 style="display:inline-block">OptiPath Navigation</h3> -->
+        </div>
+
+
+        <input type="text" id="newLocationSearch" class="control-input" placeholder="Search for a location">
+        <button class="control-button" id="searchNewLocation">Search & Add Location</button>
+
+        <div style="margin-top: 15px;">
+            <label for="startLocation"><b>Start Location:</b></label>
+            <input type="text" id="startLocation" class="control-input" placeholder="Type start location name">
+            <div id="startLocationsList" class="location-list" style="display: none;"></div>
+        </div>
+
+        <div style="margin-top: 10px;">
+            <label for="endLocation"><b>Destination:</b></label>
+            <input type="text" id="endLocation" class="control-input" placeholder="Type destination name">
+            <div id="endLocationsList" class="location-list" style="display: none;"></div>
+        </div>
+
+        <button class="control-button" id="undo">Undo Last Location</button>
+        <button class="control-button" id="shortestPath">Find Shortest Path (Dijkstra)</button>
+        <button class="control-button" id="findAllPaths">Find All Paths (Backtracking)</button>
+    </div>
+
+    <div id="map"></div>
+
+    <div id="clickPopup">
+        <div id="popupContent"></div>
+        <input type="text" id="clickLocationName" placeholder="Give this location a name">
+        <button id="addLocationBtn">Add as Location</button>
+    </div>
+
+    <div id="pathsContainer" style="display: none;">
+        <h4>Available Paths:</h4>
+        <div id="pathsList"></div>
+    </div>
+    <div class="output" id="totalTime">Total Time: --</div>
+    <div class="output" id="output">Select start and destination locations to find paths</div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <!-- <script src="leaflet.js"></script>  if stored locally-->
+    <script>
+        const BASE_SPEED_KMPH = 40; // Feel free to tweak this
+
+        const map = L.map('map').setView([19.0760, 72.8777], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+        let markers = [];
+        let markerObjects = [];
+        let undoStack = [];
+        let polylines = [];
+        let traffic = {};
+        let locationNames = [];
+        let allPathsFound = [];
+        let clickLocation = null;
+
+        function calculateDistance(a, b) {
+            const R = 6371;
+            const dLat = (b.lat - a.lat) * Math.PI / 180;
+            const dLng = (b.lng - a.lng) * Math.PI / 180;
+            const lat1 = a.lat * Math.PI / 180;
+            const lat2 = b.lat * Math.PI / 180;
+            const aVal = Math.sin(dLat / 2) ** 2 + Math.sin(dLng / 2) ** 2 * Math.cos(lat1) * Math.cos(lat2);
+            const c = 2 * Math.atan2(Math.sqrt(aVal), Math.sqrt(1 - aVal));
+            return R * c;
+        }
+
+        function getColorByWeight(weight) {
+            if (weight < 1) return '#28A745';     // bright green
+            else if (weight < 1.5) return '#ff7900';  // orange
+            else return '#DC3545';               // red
+        }
+
+        function addEdge(i, j) {
+            const key = `${Math.min(i, j)}-${Math.max(i, j)}`;
+            const weight = 0.5 + Math.random() * 2;
+            traffic[key] = weight;
+
+            const pointA = markers[i];
+            const pointB = markers[j];
+            const latlngs = [
+                [pointA.lat, pointA.lng],
+                [pointB.lat, pointB.lng]
+            ];
+
+            const color = getColorByWeight(weight);
+
+            // Distance & time calculation
+            const distance = calculateDistance(pointA, pointB); // in km
+            const timeHours = (distance * weight) / BASE_SPEED_KMPH;
+            const timeMins = (timeHours * 60).toFixed(1);
+
+            const edgeLine = L.polyline(latlngs, {
+                color: color,
+                dashArray: '4, 6'
+            }).addTo(map);
+
+            // Show tooltip with estimated time
+            edgeLine.bindTooltip(`~${timeMins} min`, { permanent: false, direction: 'center', className: 'edge-tooltip' });
+
+            edgeLine.bindPopup(`Traffic Weight: ${weight.toFixed(2)}<br>Est. Time: ${timeMins} min`);
+        }
+
+        function addMarker(lat, lng, name) {
+            const index = markers.length;
+            const locationName = name || `Location ${index}`;
+            locationNames[index] = locationName;
+
+            const customIcon = L.divIcon({
+                className: 'custom-marker',
+                html: `<div class="marker-label">${index}</div>`,
+                iconSize: [30, 30],
+                iconAnchor: [15, 30]
+            });
+
+            const marker = L.marker([lat, lng], { icon: customIcon }).addTo(map)
+                .bindPopup(`<b>${locationName}</b><br>Marker ${index}<br>Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`).openPopup();
+
+            markers.push({ lat, lng, name: locationName });
+            markerObjects.push(marker);
+            undoStack.push(marker);
+
+            for (let i = 0; i < markers.length - 1; i++) {
+                addEdge(i, index);
+            }
+
+            updateLocationLists();
+            return index;
+        }
+
+        function getTrafficWeight(i, j) {
+            const key = `${Math.min(i, j)}-${Math.max(i, j)}`;
+            return traffic[key] || 1;
+        }
+
+        // Show popup when clicking on map
+        map.on('click', function (e) {
+            const popup = document.getElementById('clickPopup');
+            clickLocation = e.latlng;
+
+            // Position the popup at the click location
+            const point = map.latLngToContainerPoint(e.latlng);
+            popup.style.left = (point.x + 10) + 'px';
+            popup.style.top = (point.y - 100) + 'px';
+
+            // Get location info from reverse geocoding
+            reverseGeocode(e.latlng.lat, e.latlng.lng, function (placeName) {
+                document.getElementById('popupContent').innerHTML = `<b>${placeName}</b><br>
+                Lat: ${e.latlng.lat.toFixed(5)}, Lng: ${e.latlng.lng.toFixed(5)}`;
+
+                document.getElementById('clickLocationName').value = placeName;
+                popup.style.display = 'block';
+            });
+        });
+
+        // Close popup when clicking elsewhere
+        map.on('click', function (e) {
+            // Intentionally empty to be handled by map.on('contextmenu')
+        });
+
+        map.on('contextmenu', function () {
+            document.getElementById('clickPopup').style.display = 'none';
+        });
+
+        // Add location from popup
+        document.getElementById('addLocationBtn').addEventListener('click', function () {
+            if (clickLocation) {
+                const name = document.getElementById('clickLocationName').value;
+                addMarker(clickLocation.lat, clickLocation.lng, name);
+                document.getElementById('clickPopup').style.display = 'none';
+            }
+        });
+
+        function reverseGeocode(lat, lng, callback) {
+            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`)
+                .then(response => response.json())
+                .then(data => {
+                    let placeName = 'Unknown Location';
+                    if (data && data.display_name) {
+                        // Try to get a simplified name
+                        const parts = [];
+                        if (data.address) {
+                            if (data.address.road) parts.push(data.address.road);
+                            if (data.address.suburb) parts.push(data.address.suburb);
+                            if (data.address.city) parts.push(data.address.city);
+                        }
+                        placeName = parts.length > 0 ? parts.join(', ') : data.display_name.split(',').slice(0, 2).join(',');
+                    }
+                    callback(placeName);
+                })
+                .catch(() => {
+                    callback('New Location');
+                });
+        }
+
+        document.getElementById("undo").addEventListener("click", () => {
+            if (undoStack.length > 0) {
+                const lastMarker = undoStack.pop();
+                const lastIndex = markers.length - 1;
+
+                // Remove marker from map
+                map.removeLayer(lastMarker);
+                markers.pop();
+                markerObjects.pop();
+
+                // Remove edges associated with the last marker
+                Object.keys(traffic).forEach(key => {
+                    if (key.includes(`${lastIndex}-`)) {
+                        delete traffic[key];
+                    }
+                });
+
+                // Refresh map by removing all polylines and redrawing remaining edges
+                map.eachLayer(layer => {
+                    if (layer instanceof L.Polyline) {
+                        map.removeLayer(layer);
+                    }
+                });
+
+                // Redraw edges for remaining markers
+                for (let i = 0; i < markers.length - 1; i++) {
+                    addEdge(i, markers.length - 1);
+                }
+            }
+        });
+
+
+        document.getElementById("searchNewLocation").addEventListener("click", () => {
+            const location = document.getElementById("newLocationSearch").value;
+            if (!location) return;
+
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(location)}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data && data.length > 0) {
+                        const { lat, lon } = data[0];
+                        map.setView([lat, lon], 15);
+                        const locationName = location;
+                        addMarker(parseFloat(lat), parseFloat(lon), locationName);
+                    } else {
+                        alert("Location not found. Please try another search term.");
+                    }
+                })
+                .catch(error => {
+                    console.error("Error searching for location:", error);
+                    alert("Error searching for location. Please try again.");
+                });
+        });
+
+        function updateLocationLists() {
+            const startList = document.getElementById('startLocationsList');
+            const endList = document.getElementById('endLocationsList');
+
+            startList.innerHTML = '';
+            endList.innerHTML = '';
+
+            locationNames.forEach((name, index) => {
+                const startItem = document.createElement('div');
+                startItem.className = 'location-item';
+                startItem.textContent = `${name} (${index})`;
+                startItem.dataset.index = index;
+                startItem.onclick = () => {
+                    document.getElementById('startLocation').value = name;
+                    startList.style.display = 'none';
+                };
+                startList.appendChild(startItem);
+
+                const endItem = document.createElement('div');
+                endItem.className = 'location-item';
+                endItem.textContent = `${name} (${index})`;
+                endItem.dataset.index = index;
+                endItem.onclick = () => {
+                    document.getElementById('endLocation').value = name;
+                    endList.style.display = 'none';
+                };
+                endList.appendChild(endItem);
+            });
+        }
+
+        document.getElementById('startLocation').addEventListener('focus', () => {
+            if (locationNames.length > 0) {
+                document.getElementById('startLocationsList').style.display = 'block';
+            }
+        });
+
+        document.getElementById('endLocation').addEventListener('focus', () => {
+            if (locationNames.length > 0) {
+                document.getElementById('endLocationsList').style.display = 'block';
+            }
+        });
+
+        // Hide location lists when clicking elsewhere
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('#startLocation') && !e.target.closest('#startLocationsList')) {
+                document.getElementById('startLocationsList').style.display = 'none';
+            }
+            if (!e.target.closest('#endLocation') && !e.target.closest('#endLocationsList')) {
+                document.getElementById('endLocationsList').style.display = 'none';
+            }
+        });
+
+        class PriorityQueue {
+            constructor() { this.items = []; }
+            enqueue(element, priority) { this.items.push({ element, priority }); }
+            dequeue() {
+                if (this.isEmpty()) return null;
+                this.items.sort((a, b) => a.priority - b.priority);
+                return this.items.shift().element;
+            }
+            isEmpty() { return this.items.length === 0; }
+        }
+
+        function getLocationIndex(locationName) {
+            // First try exact match
+            const exactIndex = locationNames.findIndex(name => name.toLowerCase() === locationName.toLowerCase());
+            if (exactIndex !== -1) return exactIndex;
+
+            // Then try partial match
+            const partialIndex = locationNames.findIndex(name =>
+                name.toLowerCase().includes(locationName.toLowerCase()) ||
+                locationName.toLowerCase().includes(name.toLowerCase())
+            );
+            return partialIndex;
+        }
+
+        function dijkstra(startIndex, endIndex) {
+            if (startIndex === endIndex) return alert("Start and end must be different.");
+
+            const dist = Array(markers.length).fill(Infinity);
+            const prev = Array(markers.length).fill(null);
+            const visited = new Set();
+            const pq = new PriorityQueue();
+            dist[startIndex] = 0;
+            pq.enqueue(startIndex, 0);
+
+            while (!pq.isEmpty()) {
+                const u = pq.dequeue();
+                visited.add(u);
+
+                if (u === endIndex) break; // Found the shortest path to the destination
+
+                for (let v = 0; v < markers.length; v++) {
+                    if (u === v || visited.has(v)) continue;
+                    const distance = calculateDistance(markers[u], markers[v]) * getTrafficWeight(u, v);
+                    const alt = dist[u] + distance;
+                    if (alt < dist[v]) {
+                        dist[v] = alt;
+                        prev[v] = u;
+                        pq.enqueue(v, alt);
+                    }
+                }
+            }
+
+            let path = [];
+            let current = endIndex;
+
+            // Check if end is reachable
+            if (prev[endIndex] === null && startIndex !== endIndex) {
+                alert("No path exists between the selected points.");
+                return;
+            }
+
+            // Reconstruct path
+            while (current !== null) {
+                path.unshift(current);
+                current = prev[current];
+            }
+
+            renderPath(path);
+        }
+
+        function renderPath(path) {
+            // Clear previous polylines
+            clearPolylines();
+
+            let totalDistance = 0;
+            let totalTimeMinutes = 0;
+
+            // Calculate total distance and time using the path
+            for (let i = 0; i < path.length - 1; i++) {
+                const from = path[i];
+                const to = path[i + 1];
+                const distance = calculateDistance(markers[from], markers[to]);
+                const trafficMultiplier = getTrafficWeight(from, to);
+                const timeHours = (distance * trafficMultiplier) / BASE_SPEED_KMPH;
+
+                totalDistance += distance;
+                totalTimeMinutes += timeHours * 60;
+            }
+
+            const latlngs = path.map(i => [markers[i].lat, markers[i].lng]);
+            const polyline = L.polyline(latlngs, { color: '#007BFF', weight: 5 }).addTo(map);
+            polylines.push(polyline);
+
+            // Format path output with location names
+            const formattedPath = path.map(i => `${locationNames[i]} (${i})`).join(" → ");
+
+            // Update the HTML with shortest path and total time
+            document.getElementById("output").innerHTML = `<strong>Shortest path:</strong><br>${formattedPath}`;
+            document.getElementById("totalTime").innerHTML = `<strong>Total Distance:</strong> ${totalDistance.toFixed(2)} km<br>
+                                                           <strong>Total Estimated Time:</strong> ${totalTimeMinutes.toFixed(1)} min`;
+        }
+
+        function clearPolylines() {
+            for (let line of polylines) {
+                map.removeLayer(line);
+            }
+            polylines = [];
+        }
+
+        function findAllPaths(startIndex, endIndex, maxPaths = 10) {
+            if (startIndex === endIndex) return alert("Start and end must be different.");
+
+            const paths = [];
+            const visited = new Array(markers.length).fill(false);
+
+            function backtrack(currentVertex, path, totalTime) {
+                if (paths.length >= maxPaths) return; // Limit the number of paths
+
+                // If we've reached the destination
+                if (currentVertex === endIndex) {
+                    paths.push({
+                        path: [...path],
+                        time: totalTime
+                    });
+                    return;
+                }
+
+                // Try all neighboring vertices
+                for (let i = 0; i < markers.length; i++) {
+                    if (!visited[i] && currentVertex !== i) {
+                        visited[i] = true;
+
+                        const distance = calculateDistance(markers[currentVertex], markers[i]);
+                        const trafficMultiplier = getTrafficWeight(currentVertex, i);
+                        const timeHours = (distance * trafficMultiplier) / BASE_SPEED_KMPH;
+                        const timeMinutes = timeHours * 60;
+
+                        path.push(i);
+                        backtrack(i, path, totalTime + timeMinutes);
+
+                        // Backtrack
+                        path.pop();
+                        visited[i] = false;
+                    }
+                }
+            }
+
+            // Start backtracking from the start vertex
+            visited[startIndex] = true;
+            backtrack(startIndex, [startIndex], 0);
+
+            // Sort paths by total time
+            paths.sort((a, b) => a.time - b.time);
+
+            return paths;
+        }
+
+        function displayPathOptions(paths) {
+            const pathsContainer = document.getElementById("pathsContainer");
+            const pathsList = document.getElementById("pathsList");
+
+            pathsContainer.style.display = "block";
+            pathsList.innerHTML = "";
+
+            paths.forEach((pathData, index) => {
+                const pathDiv = document.createElement("div");
+                pathDiv.className = "path-option";
+                pathDiv.dataset.index = index;
+
+                // Format path with location names
+                const formattedPath = pathData.path.map(i => `${locationNames[i]} (${i})`).join(" → ");
+
+                pathDiv.innerHTML = `
+                    <strong>Path ${index + 1}</strong> (${pathData.time.toFixed(1)} min):<br>
+                    ${formattedPath}
+                `;
+
+                pathDiv.addEventListener("click", () => {
+                    // Remove selected class from all options
+                    document.querySelectorAll(".path-option").forEach(el => {
+                        el.classList.remove("selected");
+                    });
+
+                    // Add selected class to this option
+                    pathDiv.classList.add("selected");
+
+                    // Render this path
+                    renderPath(pathData.path);
+                });
+
+                pathsList.appendChild(pathDiv);
+            });
+        }
+
+        function findLocationIndices() {
+            const startLocationName = document.getElementById('startLocation').value;
+            const endLocationName = document.getElementById('endLocation').value;
+
+            if (!startLocationName || !endLocationName) {
+                alert("Please enter both start and destination locations");
+                return null;
+            }
+
+            const startIndex = getLocationIndex(startLocationName);
+            const endIndex = getLocationIndex(endLocationName);
+
+            if (startIndex === -1) {
+                alert(`Start location "${startLocationName}" not found`);
+                return null;
+            }
+
+            if (endIndex === -1) {
+                alert(`Destination "${endLocationName}" not found`);
+                return null;
+            }
+
+            return { startIndex, endIndex };
+        }
+
+        document.getElementById("shortestPath").addEventListener("click", () => {
+            const indices = findLocationIndices();
+            if (!indices) return;
+
+            const { startIndex, endIndex } = indices;
+
+            // Hide paths container
+            document.getElementById("pathsContainer").style.display = "none";
+
+            dijkstra(startIndex, endIndex);
+        });
+
+        document.getElementById("findAllPaths").addEventListener("click", () => {
+            const indices = findLocationIndices();
+            if (!indices) return;
+
+            const { startIndex, endIndex } = indices;
+
+            clearPolylines();
+
+            const allPaths = findAllPaths(startIndex, endIndex);
+            allPathsFound = allPaths;
+
+            if (allPaths.length === 0) {
+                alert("No paths found between these points.");
+                return;
+            }
+
+            displayPathOptions(allPaths);
+
+            // Default to showing the shortest path
+            renderPath(allPaths[0].path);
+            document.querySelector(".path-option").classList.add("selected");
+        });
+
+
+    </script>
+</body>
+
+</html>
